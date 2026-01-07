@@ -1,4 +1,5 @@
 import gymnasium as gym
+import numpy as np
 import torch
 import torch.nn as nn
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
@@ -55,6 +56,38 @@ class LowMemCNN(BaseFeaturesExtractor):
         x = self.relu(x)
 
         return x
+
+
+class RandomShiftWrapper(gym.ObservationWrapper):
+    """
+    Research Technique: DrQ (Data Regularized Q-Learning) Augmentation.
+    Randomly shifts the image by +/- pad pixels to force invariant feature learning.
+    """
+
+    def __init__(self, env, pad=4):
+        super().__init__(env)
+        self.pad = pad
+
+    def observation(self, obs):
+        # Only shift if we have a valid image (Height, Width, Channel)
+        if len(obs.shape) == 3:
+            h, w, c = obs.shape
+
+            # Create a padded canvas
+            padded_obs = np.pad(
+                obs, ((self.pad, self.pad), (self.pad, self.pad), (0, 0)), mode="edge"
+            )
+
+            # Random shift coordinates
+            x = np.random.randint(0, 2 * self.pad + 1)
+            y = np.random.randint(0, 2 * self.pad + 1)
+
+            # Crop the padded canvas to the original size
+            shifted_obs = padded_obs[y : y + h, x : x + w, :]
+
+            return shifted_obs
+
+        return obs
 
 
 print("LowMemCNN Architecture definition loaded.")
